@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Datasets and Large Files
+data/
+archive.zip
+*.h5
+*.nii
+*.nii.gz
+
+# Models (keep training_history.json but ignore massive weights)
+models/*.pth
+models/*.pt
+
+# OS specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainTumor AI – MRI Segmentation Dashboard</title>
+    <meta name="description" content="AI-powered brain tumor MRI segmentation and classification dashboard. Upload MRI scans for instant tumor detection, segmentation overlays, and classification insights.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ───── BACKGROUND EFFECTS ───── -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <!-- ───── NAVBAR ───── -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-brand">
+            <div class="nav-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2a7 7 0 0 0-7 7c0 3 2 5.5 4 7.5L12 22l3-5.5c2-2 4-4.5 4-7.5a7 7 0 0 0-7-7z"/>
+                    <circle cx="12" cy="9" r="2.5"/>
+                </svg>
+            </div>
+            <span class="nav-title">BrainTumor<span class="accent">AI</span></span>
+        </div>
+        <div class="nav-status" id="serverStatus">
+            <div class="status-dot offline"></div>
+            <span>Connecting...</span>
+        </div>
+    </nav>
+
+    <!-- ───── HERO / HOME SCREEN ───── -->
+    <section class="screen active" id="homeScreen">
+        <div class="hero-container">
+            <div class="hero-badge">🧠 Medical AI Vision</div>
+            <h1 class="hero-title">
+                Brain Tumor<br>
+                <span class="gradient-text">MRI Analyzer</span>
+            </h1>
+            <p class="hero-subtitle">
+                AI-powered multi-class tumor segmentation with real-time visualization.
+                Detect, segment, and classify brain tumors in seconds.
+            </p>
+
+            <div class="hero-features">
+                <div class="feature-chip">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    U-Net ResNet50
+                </div>
+                <div class="feature-chip">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    4-Class Segmentation
+                </div>
+                <div class="feature-chip">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Real-time Overlay
+                </div>
+            </div>
+
+            <!-- Volume Selector and Upload -->
+            <div class="upload-section" id="uploadSection" style="margin-bottom: 24px;">
+                <h3 class="selector-title">Upload Custom MRI (.jpg / .png / .nii)</h3>
+                <div class="upload-dropzone" id="uploadDropzone">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <p style="margin-top: 12px; color: var(--text-secondary)">Drag & drop MRI file here<br>or <span style="color: var(--accent); cursor: pointer; text-decoration: underline;" id="browseFileText">browse files</span></p>
+                    <input type="file" id="fileInput" accept=".nii,.nii.gz,.jpg,.jpeg,.png" style="display: none;">
+                </div>
+            </div>
+
+            <div class="volume-selector" id="volumeSelector">
+                <h3 class="selector-title">Or Select Sample MRI Volume</h3>
+                <div class="volume-grid" id="volumeGrid">
+                    <div class="loading-volumes">
+                        <div class="spinner"></div>
+                        <span>Loading volumes...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───── PROCESSING SCREEN ───── -->
+    <section class="screen" id="processingScreen">
+        <div class="processing-container">
+            <div class="brain-pulse">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 2a7 7 0 0 0-7 7c0 3 2 5.5 4 7.5L12 22l3-5.5c2-2 4-4.5 4-7.5a7 7 0 0 0-7-7z"/>
+                    <circle cx="12" cy="9" r="2.5"/>
+                </svg>
+            </div>
+            <h2 class="processing-title">Analyzing MRI...</h2>
+            <p class="processing-subtitle" id="processingText">Running segmentation model</p>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="progress-steps" id="progressSteps">
+                <div class="step active" id="step1">
+                    <div class="step-dot"></div>
+                    <span>Loading Slice</span>
+                </div>
+                <div class="step" id="step2">
+                    <div class="step-dot"></div>
+                    <span>Preprocessing</span>
+                </div>
+                <div class="step" id="step3">
+                    <div class="step-dot"></div>
+                    <span>Segmentation</span>
+                </div>
+                <div class="step" id="step4">
+                    <div class="step-dot"></div>
+                    <span>Analysis</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ───── RESULTS SCREEN ───── -->
+    <section class="screen" id="resultsScreen">
+        <div class="results-container">
+            <!-- Header -->
+            <div class="results-header">
+                <button class="btn-back" id="btnBack">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Back
+                </button>
+                <div class="result-info">
+                    <h2>Analysis Results</h2>
+                    <span class="result-meta" id="resultMeta">Volume 100 · Slice 70</span>
+                </div>
+                <div class="result-badge" id="tumorBadge">
+                    <span class="badge-dot"></span>
+                    Tumor Detected
+                </div>
+            </div>
+
+            <!-- Image Viewer -->
+            <div class="viewer-section">
+                <div class="view-tabs" id="viewTabs">
+                    <button class="view-tab active" data-view="mri">Original MRI</button>
+                    <button class="view-tab" data-view="pred_overlay">Prediction Overlay</button>
+                    <button class="view-tab" data-view="gt_overlay">Ground Truth</button>
+                    <button class="view-tab" data-view="pred_mask">Pred Mask</button>
+                    <button class="view-tab" data-view="gt_mask">GT Mask</button>
+                </div>
+                <div class="image-viewer">
+                    <img id="viewerImage" src="" alt="MRI Analysis">
+                </div>
+                <div class="color-legend">
+                    <div class="legend-item"><div class="legend-color" style="background:#FFD700"></div> Edema (WT)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#FF8C00"></div> Tumor Core (TC)</div>
+                    <div class="legend-item"><div class="legend-color" style="background:#FF0000"></div> Enhancing (ET)</div>
+                </div>
+            </div>
+
+            <!-- Metrics & Info Grid -->
+            <div class="info-grid">
+                <!-- Prediction Panel -->
+                <div class="info-card card-prediction">
+                    <div class="card-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Prediction
+                    </div>
+                    <div class="card-body">
+                        <div class="pred-item">
+                            <span class="pred-label">Tumor Detected</span>
+                            <span class="pred-value" id="predDetected">✔ Yes</span>
+                        </div>
+                        <div class="pred-item">
+                            <span class="pred-label">Tumor Type</span>
+                            <span class="pred-value" id="predType">Glioma</span>
+                        </div>
+                        <div class="pred-item">
+                            <span class="pred-label">Location</span>
+                            <span class="pred-value" id="predLocation">Left Hemisphere</span>
+                        </div>
+                        <div class="pred-item">
+                            <span class="pred-label">Confidence</span>
+                            <span class="pred-value" id="predConfidence">87.3%</span>
+                        </div>
+                        <div class="pred-item">
+                            <span class="pred-label">Tumor Area</span>
+                            <span class="pred-value" id="predArea">12.4%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dice Scores -->
+                <div class="info-card card-metrics">
+                    <div class="card-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Dice Scores
+                    </div>
+                    <div class="card-body">
+                        <div class="metric-bar">
+                            <div class="metric-info">
+                                <span>Overall</span>
+                                <span class="metric-val" id="diceOverall">0.84</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill overall" id="barOverall" style="width:84%"></div></div>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-info">
+                                <span>WT (Edema)</span>
+                                <span class="metric-val" id="diceWT">0.87</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill wt" id="barWT" style="width:87%"></div></div>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-info">
+                                <span>TC (Core)</span>
+                                <span class="metric-val" id="diceTC">0.82</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill tc" id="barTC" style="width:82%"></div></div>
+                        </div>
+                        <div class="metric-bar">
+                            <div class="metric-info">
+                                <span>ET (Enhancing)</span>
+                                <span class="metric-val" id="diceET">0.79</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill et" id="barET" style="width:79%"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tumor Composition -->
+                <div class="info-card card-composition">
+                    <div class="card-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a7 7 0 0 0 0 20"/><path d="M12 2a7 7 0 0 1 0 20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                        Tumor Composition
+                    </div>
+                    <div class="card-body">
+                        <div class="composition-ring" id="compositionRing">
+                            <canvas id="compositionCanvas" width="160" height="160"></canvas>
+                            <div class="ring-center">
+                                <span class="ring-value" id="totalTumor">12.4%</span>
+                                <span class="ring-label">Tumor Area</span>
+                            </div>
+                        </div>
+                        <div class="composition-legend">
+                            <div class="comp-item">
+                                <div class="comp-dot" style="background:#FFD700"></div>
+                                <span>Edema</span>
+                                <span class="comp-val" id="compWT">65.2%</span>
+                            </div>
+                            <div class="comp-item">
+                                <div class="comp-dot" style="background:#FF8C00"></div>
+                                <span>Core</span>
+                                <span class="comp-val" id="compTC">22.1%</span>
+                            </div>
+                            <div class="comp-item">
+                                <div class="comp-dot" style="background:#FF0000"></div>
+                                <span>Enhancing</span>
+                                <span class="comp-val" id="compET">12.7%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Insights -->
+                <div class="info-card card-insights">
+                    <div class="card-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        Model Insights
+                    </div>
+                    <div class="card-body" id="insightsContainer">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slice Navigator -->
+            <div class="slice-navigator">
+                <h3>Browse Slices</h3>
+                <div class="slice-controls">
+                    <button class="btn-slice" id="btnPrevSlice">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <div class="slice-slider-container">
+                        <input type="range" id="sliceSlider" min="0" max="154" value="70" class="slice-slider">
+                        <span class="slice-label" id="sliceLabel">Slice 70</span>
+                    </div>
+                    <button class="btn-slice" id="btnNextSlice">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <button class="btn-analyze-slice" id="btnAnalyzeSlice">Analyze</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="app.js"></script>
+</body>
+</html>
