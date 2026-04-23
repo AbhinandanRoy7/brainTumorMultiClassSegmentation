@@ -19,9 +19,11 @@ from backend.pipeline import (
     load_h5_slice, get_available_volumes, get_volume_slices,
     find_tumor_slices, run_inference_pipeline, mask_onehot_to_classes
 )
+from backend.classifier import TumorClassifier
 from backend.utils import (
-    color_map_mask, create_overlay, compute_dice, detect_tumor_location,
-    compute_tumor_stats, generate_insights, numpy_to_base64
+    color_map_mask, create_overlay, compute_dice, 
+    detect_tumor_location, compute_tumor_stats, 
+    generate_insights, numpy_to_base64
 )
 
 
@@ -30,6 +32,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 MODEL_PATH = os.path.join(MODEL_DIR, "best_model.pth")
+CLASSIFIER_PATH = os.path.join(MODEL_DIR, "classifier.pth")
 HISTORY_PATH = os.path.join(MODEL_DIR, "training_history.json")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -40,6 +43,7 @@ CORS(app)
 
 # Global model
 model = None
+classifier = None
 training_history = None
 
 
@@ -48,13 +52,27 @@ def get_model():
     global model
     if model is None:
         if os.path.exists(MODEL_PATH):
-            print(f"🧠 Loading model from {MODEL_PATH}...")
+            print(f"[Model] Loading model from {MODEL_PATH}...")
             model = load_model(MODEL_PATH, device=DEVICE)
-            print(f"✅ Model loaded on {DEVICE}")
+            print(f"[Model] Model loaded on {DEVICE}")
         else:
-            print(f"⚠️ No model found at {MODEL_PATH}")
+            print(f"[Model] Warning: No model found at {MODEL_PATH}")
             return None
     return model
+
+
+def get_classifier():
+    """Lazy-load classifier."""
+    global classifier
+    if classifier is None:
+        if os.path.exists(CLASSIFIER_PATH):
+            print(f"[Classifier] Loading classifier from {CLASSIFIER_PATH}...")
+            classifier = TumorClassifier(CLASSIFIER_PATH, device=DEVICE)
+            print(f"[Classifier] Classifier loaded on {DEVICE}")
+        else:
+            print(f"[Classifier] Warning: No classifier found at {CLASSIFIER_PATH}")
+            return None
+    return classifier
 
 
 def get_training_history():
@@ -142,6 +160,18 @@ def api_analyze():
     image, mask_onehot = load_h5_slice(filepath)
     gt_mask = mask_onehot_to_classes(mask_onehot)
     
+    # Run classifier first, but do not short-circuit the full segmentation pipeline.
+    classifier_result = None
+    clf = get_classifier()
+    if clf is not None:
+        mri_slice = image[:, :, 0]  # (240, 240)
+        mri_rgb = np.stack([mri_slice, mri_slice, mri_slice], axis=-1)
+        has_tumor, conf = clf.predict(mri_rgb)
+        classifier_result = {
+            "tumor_detected": bool(has_tumor),
+            "confidence": round(conf, 4),
+        }
+
     # Load model
     m = get_model()
     if m is None:
@@ -170,6 +200,7 @@ def api_analyze():
     response = {
         "volume_id": volume_id,
         "slice_index": slice_index,
+        "classifier": classifier_result,
         "images": {
             "mri": numpy_to_base64(mri_slice),
             "pred_mask": numpy_to_base64(colored_pred),
@@ -359,6 +390,17 @@ def api_upload():
         # Simulate 4 modalities
         image_4ch = np.stack([final_slice, final_slice, final_slice, final_slice], axis=-1)
         
+        # Run classifier first
+        classifier_result = None
+        clf = get_classifier()
+        if clf is not None:
+            mri_rgb = np.stack([final_slice, final_slice, final_slice], axis=-1)
+            has_tumor, clf_conf = clf.predict(mri_rgb)
+            classifier_result = {
+                "tumor_detected": bool(has_tumor),
+                "confidence": round(clf_conf, 4),
+            }
+
         # Load model and run inference
         m = get_model()
         if m is None:
@@ -400,6 +442,7 @@ def api_upload():
         return jsonify({
             "volume_id": "Custom Upload",
             "slice_index": best_slice_idx,
+            "classifier": classifier_result,
             "images": {
                 "mri": numpy_to_base64(mri_slice),
                 "pred_mask": numpy_to_base64(colored_pred),
@@ -430,7 +473,7 @@ def api_upload():
 
 # ─── MAIN ─────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    print("🧠 Brain Tumor MRI Analyzer - Backend Server")
+    print("Brain Tumor MRI Analyzer - Backend Server")
     print(f"   Device: {DEVICE}")
     print(f"   Data: {DATA_DIR}")
     print(f"   Model: {MODEL_PATH}")

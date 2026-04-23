@@ -138,8 +138,24 @@ def heuristic_tumor_segmentation(image_2d, confidence_default=0.92):
     img_8u = (image_2d * 255).astype(np.uint8)
     blurred = cv2.GaussianBlur(img_8u, (7, 7), 0)
     
-    # Threshold top ~5% brightest pixels
-    _, thresh = cv2.threshold(blurred, 150, 255, cv2.THRESH_BINARY)
+    # Create an inner ellipse mask that blocks the skull rim and outer edge.
+    # This excludes the bright skull boundary present in non-skull-stripped MRI scans.
+    h, w = image_2d.shape
+    center_mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.ellipse(
+        center_mask,
+        (w // 2, h // 2),
+        (int(w * 0.45), int(h * 0.45)),
+        0,
+        0,
+        360,
+        255,
+        -1,
+    )
+    blurred = cv2.bitwise_and(blurred, blurred, mask=center_mask)
+
+    # Threshold only the brightest white spots to avoid skull and noise.
+    _, thresh = cv2.threshold(blurred, 160, 255, cv2.THRESH_BINARY)
     
     # Morphological op to clean small noise
     kernel = np.ones((5,5), np.uint8)
@@ -155,22 +171,29 @@ def heuristic_tumor_segmentation(image_2d, confidence_default=0.92):
     if not contours:
         return mask, probs, 0.0
         
-    # Get largest contour near center
-    def score_contour(c):
-        M = cv2.moments(c)
-        if M["m00"] == 0: return 0
-        cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+    valid_contours = []
+    for c in contours:
         area = cv2.contourArea(c)
-        
-        # Distance from center
-        h, w = image_2d.shape
+        if area < 50:
+            continue
+            
+        M = cv2.moments(c)
+        if M["m00"] == 0: 
+            continue
+            
+        cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
         dist = np.sqrt((cx - w/2)**2 + (cy - h/2)**2)
-        return area / (dist + 1) # Prefer large & central
         
-    best_contour = max(contours, key=score_contour)
-    if cv2.contourArea(best_contour) < 50:
-        return mask, probs, 0.0 # Too small
+        # Score based on area and centrality
+        score = area / (dist + 1)
+        valid_contours.append((c, score))
         
+    if not valid_contours:
+        return mask, probs, 0.0 # No valid clotted spot found
+
+    # Get best contour
+    best_contour = max(valid_contours, key=lambda x: x[1])[0]
+    
     # Draw nested rings for realistic 4-class segmentation
     cv2.drawContours(mask, [best_contour], -1, 3, thickness=cv2.FILLED) # Enhancing = class 3
     

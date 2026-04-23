@@ -24,3 +24,7 @@ models/*.pt
 # OS specific
 .DS_Store
 Thumbs.db
+
+braintumordata.zip
+Testing/
+Training/

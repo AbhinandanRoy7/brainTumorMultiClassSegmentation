@@ -273,6 +273,39 @@ function displayResults(result) {
     // Meta
     $('#resultMeta').textContent = `Volume ${result.volume_id} · Slice ${result.slice_index}`;
     
+    // Check if no tumor
+    if (result.tumor_detected === false) {
+        // Hide segmentation elements, show no tumor message
+        $('#tumorBadge').className = 'result-badge no-tumor';
+        $('#tumorBadge').innerHTML = '<span class="badge-dot"></span> No Tumor Detected';
+        
+        $('#predDetected').textContent = '❌ No';
+        $('#predType').textContent = 'None';
+        $('#predLocation').textContent = 'N/A';
+        $('#predConfidence').textContent = `${(result.confidence * 100).toFixed(1)}%`;
+        $('#predArea').textContent = '0%';
+        
+        // Hide dice and composition
+        $$('.info-card').forEach(card => {
+            if (card.classList.contains('card-metrics') || card.classList.contains('card-composition')) {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Show only MRI
+        setViewTab('mri');
+        
+        // Insights
+        renderInsights([{
+            type: 'info',
+            title: 'No Tumor Found',
+            text: result.message || 'The classifier detected no tumor in this image.'
+        }]);
+        
+        return;
+    }
+    
+    // Normal tumor case
     // Store images
     state.images = result.images;
     
